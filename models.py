@@ -180,6 +180,7 @@ class Models:
                     else:
                         model = Model(group, subdivision=subdivision)
                     self.add_model(model)
+                    yield len(self.models)
 
         # прогноз для регионов
         elif 'Регион' in df.columns:
@@ -197,6 +198,7 @@ class Models:
                     else:
                         model = Model(group, region=region)
                     self.add_model(model)
+                    yield len(self.models)
 
         # прогноз для менеджеров
         elif 'Менеджер' in df.columns:
@@ -214,6 +216,7 @@ class Models:
                     else:
                         model = Model(group, manager=manager)
                     self.add_model(model)
+                    yield len(self.models)
 
         # прогноз для компании в целом
         else:
@@ -226,4 +229,4 @@ class Models:
                 else:
                     model = Model(group)
                 self.add_model(model)
-        yield len(self.models)
+                yield len(self.models)

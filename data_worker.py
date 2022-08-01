@@ -186,7 +186,7 @@ class DataWorker:
             df_manager = df_manager[(df_manager['Группа'] == df_manager['Группа'].unique()[0]) \
                                     & (df_manager['Менеджер'] == df_manager['Менеджер'].unique()[0])]
 
-        basic_models_count = len(df_group)
+        basic_models_count = len(df_group['Группа'].unique())
         subdivisions_models_count = len(df_subdivision['Группа'].unique()) * len(df_subdivision['Подразделение'].unique())
         regions_models_count = len(df_region['Группа'].unique()) * len(df_region['Регион'].unique())
         managers_models_count = len(df_manager['Группа'].unique()) * len(df_manager['Менеджер'].unique())
