@@ -8,7 +8,7 @@ def create_parser():
     _parser = argparse.ArgumentParser()
     _parser.add_argument('-p', '--production', default='false')
     _parser.add_argument('-rh', '--redis_host', default='192.168.19.18')
-    _parser.add_argument('-rdb', '--redis_db', default='0')
+    _parser.add_argument('-rdb', '--redis_db', default='15')
     return _parser
 
 

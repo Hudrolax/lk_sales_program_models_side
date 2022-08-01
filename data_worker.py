@@ -186,12 +186,17 @@ class DataWorker:
             df_manager = df_manager[(df_manager['Группа'] == df_manager['Группа'].unique()[0]) \
                                     & (df_manager['Менеджер'] == df_manager['Менеджер'].unique()[0])]
 
-        basic_models_count = len(df_group['Группа'].unique())
-        subdivisions_models_count = len(df_subdivision['Группа'].unique()) * len(df_subdivision['Подразделение'].unique())
-        regions_models_count = len(df_region['Группа'].unique()) * len(df_region['Регион'].unique())
-        managers_models_count = len(df_manager['Группа'].unique()) * len(df_manager['Менеджер'].unique())
+        last_year = datetime.now() - relativedelta(years=1)
+        basic_models_count = len(df_group[df_group['Период'] > last_year]['Группа'].unique())
+        subdivisions_models_count = len(df_subdivision[df_subdivision['Период'] > last_year]['Группа'].unique())\
+                                * len(df_subdivision[df_subdivision['Период'] > last_year]['Подразделение'].unique())
+        regions_models_count = len(df_region[df_region['Период'] > last_year]['Группа'].unique())\
+                               * len(df_region[df_region['Период'] > last_year]['Регион'].unique())
+        managers_models_count = len(df_manager[df_manager['Период'] > last_year]['Группа'].unique())\
+                                * len(df_manager[df_manager['Период'] > last_year]['Менеджер'].unique())
         total_models_count = basic_models_count + subdivisions_models_count + regions_models_count + managers_models_count
         self.redis.set('total_models_count', total_models_count)
+        print(f'Total models to build {total_models_count}')
 
         # модели в общем по-группам
         for i in self.models.make_fit_predict_raw_data(df_group):
