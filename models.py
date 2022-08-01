@@ -9,7 +9,6 @@ import numpy as np
 from prophet.plot import plot_plotly
 import plotly.express as px
 
-
 prophet.forecaster.logger.setLevel(logging.WARNING)
 logging.getLogger('cmdstanpy').setLevel(logging.ERROR)
 
@@ -156,10 +155,11 @@ class Models:
                 return
         self.models.append(model)
 
-    def make_fit_predict_raw_data(self, df: pd.DataFrame) -> None:
+    def make_fit_predict_raw_data(self, df: pd.DataFrame):
         """
         Решает, какую модель обучения выбрать для исходных данных, подготавливает данные, создает модель, обучает,
-         делает прогноз
+         делает прогноз.
+        Функцию необходимо вызывать как итератор, т.к. она возвращает количество созданных моделей на каждой итерации
         :param df: сгруппированный датафрейм с историческими данными
         :return:
         """
@@ -171,8 +171,8 @@ class Models:
                 for subdivision in actual_subd:
                     df_model = df[(df['Группа'] == group) & (df['Подразделение'] == subdivision)].sort_values(
                         by='Период')
-                    df_model = df_model.drop(['Группа', 'Подразделение', 'Ед'], axis=1).rename(columns={'Период': 'ds',
-                                                                                                        'Показатель': 'y'})
+                    df_model = df_model.drop(['Группа', 'Подразделение'], axis=1).rename(columns={'Период': 'ds',
+                                                                                                  'Показатель': 'y'})
                     # pdb.set_trace()
                     if len(df_model) > 1:
                         model = Model(group, name='prophet', subdivision=subdivision)
@@ -188,7 +188,7 @@ class Models:
                 for region in actual_regions:
                     df_model = df[(df['Группа'] == group) & (df['Регион'] == region)].sort_values(
                         by='Период')
-                    df_model = df_model.drop(['Группа', 'Регион', 'Ед'], axis=1).rename(
+                    df_model = df_model.drop(['Группа', 'Регион'], axis=1).rename(
                         columns={'Период': 'ds',
                                  'Показатель': 'y'})
                     if len(df_model) > 1:
@@ -205,7 +205,7 @@ class Models:
                 for manager in actual_managers:
                     df_model = df[(df['Группа'] == group) & (df['Менеджер'] == manager)].sort_values(
                         by='Период')
-                    df_model = df_model.drop(['Группа', 'Менеджер', 'Ед'], axis=1).rename(
+                    df_model = df_model.drop(['Группа', 'Менеджер'], axis=1).rename(
                         columns={'Период': 'ds',
                                  'Показатель': 'y'})
                     if len(df_model) > 1:
@@ -219,10 +219,11 @@ class Models:
         else:
             for group in df['Группа'].unique():
                 df_model = df[df['Группа'] == group].sort_values(by='Период')
-                df_model = df_model.drop(['Группа', 'Ед'], axis=1).rename(columns={'Период': 'ds', 'Показатель': 'y'})
+                df_model = df_model.drop(['Группа'], axis=1).rename(columns={'Период': 'ds', 'Показатель': 'y'})
                 if len(df_model) > 1:
                     model = Model(group, name='prophet')
-                    model.make_fit_predict(group=group, subdivision='По компании в целом', df=df_model)
+                    model.make_fit_predict(group=group, df=df_model)
                 else:
                     model = Model(group)
                 self.add_model(model)
+        yield len(self.models)

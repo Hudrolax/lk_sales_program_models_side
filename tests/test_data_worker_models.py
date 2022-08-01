@@ -38,29 +38,9 @@ def test_load_data_from_1c(test_setup):
     assert 'Группа' in test_setup._df.columns
     assert 'Регион' in test_setup._df.columns
     assert 'Менеджер' in test_setup._df.columns
-    assert 'Ед' in test_setup._df.columns
 
     assert not test_setup._df.empty
     test_setup.preprocessing_data()
-
-
-def test_load_data_from_cache(test_setup):
-    """
-    Тест загрузки данных из файлового кеша
-    :param test_setup:
-    :return:
-    """
-    if test_setup.load_data_from_cache():
-        assert type(test_setup._df) == pd.DataFrame
-        assert 'Период' in test_setup._df.columns
-        assert 'Показатель' in test_setup._df.columns
-        assert 'Подразделение' in test_setup._df.columns
-        assert 'Группа' in test_setup._df.columns
-        assert 'Регион' in test_setup._df.columns
-        assert 'Менеджер' in test_setup._df.columns
-        assert 'Ед' in test_setup._df.columns
-        assert not test_setup._df.empty
-        test_setup.preprocessing_data()
 
 
 def test_get_empty_model(test_setup):
@@ -72,7 +52,7 @@ def test_get_empty_model(test_setup):
     model = test_setup.models.get_model(group='Неизвестная группа', subdivision='Непонятное подразделение')
     assert model.name is None
     assert type(model.forecast) == pd.DataFrame
-    period = test_setup.df_s['Период'].max() + relativedelta(months=1)
+    period = test_setup.dfc['Период'].max() + relativedelta(months=1)
     # pdb.set_trace()
     forecast = model.get_forecast(period)
     assert forecast == 0
@@ -85,36 +65,40 @@ def test_make_fit_predict_raw_data(test_setup):
     :param test_setup:
     :return:
     """
-    df_group = test_setup.df_s.groupby(['Период', 'Группа', 'Ед'], as_index=False).sum()
+    df_group = test_setup.dfc.groupby(['Период', 'Группа'], as_index=False).sum()
     df_group = df_group[df_group['Группа'] == df_group['Группа'].unique()[0]]
 
-    df_subdivision = test_setup.df_s.groupby(['Период', 'Группа', 'Подразделение', 'Ед'], as_index=False).sum()
+    df_subdivision = test_setup.dfc.groupby(['Период', 'Группа', 'Подразделение'], as_index=False).sum()
     df_subdivision = df_subdivision[(df_subdivision['Группа'] == df_subdivision['Группа'].unique()[0]) \
                                     & (df_subdivision['Подразделение'] == df_subdivision['Подразделение'].unique()[0])]
 
-    df_region = test_setup.df_s.groupby(['Период', 'Группа', 'Регион', 'Ед'], as_index=False).sum()
+    df_region = test_setup.dfc.groupby(['Период', 'Группа', 'Регион'], as_index=False).sum()
     df_region = df_region[(df_region['Группа'] == df_region['Группа'].unique()[0]) \
                                     & (df_region['Регион'] == df_region['Регион'].unique()[0])]
 
-    df_manager = test_setup.df_s.groupby(['Период', 'Группа', 'Менеджер', 'Ед'], as_index=False).sum()
+    df_manager = test_setup.dfc.groupby(['Период', 'Группа', 'Менеджер'], as_index=False).sum()
     df_manager = df_manager.drop(df_manager[df_manager['Менеджер'] == ""].index)
     df_manager = df_manager[(df_manager['Группа'] == df_manager['Группа'].unique()[0]) \
                           & (df_manager['Менеджер'] == df_manager['Менеджер'].unique()[0])]
 
     # модели в общем по-группам
-    test_setup.models.make_fit_predict_raw_data(df_group)
+    for i in test_setup.models.make_fit_predict_raw_data(df_group):
+        pass
 
     # модели в разрезе подразделений
-    test_setup.models.make_fit_predict_raw_data(df_subdivision)
+    for i in test_setup.models.make_fit_predict_raw_data(df_subdivision):
+        pass
 
     # модели в разрезе регионов
-    test_setup.models.make_fit_predict_raw_data(df_region)
+    for i in test_setup.models.make_fit_predict_raw_data(df_region):
+        pass
 
     # модели в разрезе менеджеров
-    test_setup.models.make_fit_predict_raw_data(df_manager)
+    for i in test_setup.models.make_fit_predict_raw_data(df_manager):
+        pass
 
     assert len(test_setup.models.models) > 0
-    period = test_setup.df_s['Период'].max() + relativedelta(months=1)
+    period = test_setup.dfc['Период'].max() + relativedelta(months=1)
     for i in range(4):
         assert test_setup.models.models[i].name is not None
         assert test_setup.models.models[i].rmse > 0
@@ -123,3 +107,7 @@ def test_make_fit_predict_raw_data(test_setup):
         forecast = test_setup.models.models[i].get_forecast(period)
         assert forecast != 0
         assert test_setup.models.models[i].mse != test_setup.models.models[0].rmse
+
+
+def test_save_to_redis(test_setup):
+    test_setup.save_to_redis()

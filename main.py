@@ -1,18 +1,44 @@
-import redis
-import json
+from data_worker import DataWorker
+import logging
+import argparse
+import sys
 
 
-class MyRedis(redis.Redis):
-    def set_dict(self, key: str, _dict: dict, **kwargs) -> bool:
-        json_string = json.dumps(_dict, ensure_ascii=False).encode('utf-8')
-        return self.set(key, json_string, **kwargs)
+def create_parser():
+    _parser = argparse.ArgumentParser()
+    _parser.add_argument('-p', '--production', default='false')
+    _parser.add_argument('-rh', '--redis_host', default='192.168.19.18')
+    _parser.add_argument('-rdb', '--redis_db', default='0')
+    return _parser
 
-    def get_dict(self, key: str) -> dict:
-        return json.loads(self.get(key))
 
+parser = create_parser()
+params = parser.parse_args(sys.argv[1:])
+
+
+PRODUCTION = params.production.lower() in ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'certainly', 'uh-huh']
+
+print(f'production {PRODUCTION}')
+print(f'redis_host {params.redis_host}')
+print(f'redis_db {int(params.redis_db)}')
+
+WRITE_LOG_TO_FILE = False
+LOG_FORMAT = '%(name)s (%(levelname)s) %(asctime)s: %(message)s'
+if not params.production:
+    LOG_LEVEL = logging.DEBUG
+else:
+    LOG_LEVEL = logging.INFO
+
+logger = logging.getLogger('main')
+
+if WRITE_LOG_TO_FILE:
+    logging.basicConfig(filename='lk_sales_program_models_side.txt', filemode='w', format=LOG_FORMAT, level=LOG_LEVEL,
+                        datefmt='%d.%m.%y %H:%M:%S')
+else:
+    logging.basicConfig(format=LOG_FORMAT, level=LOG_LEVEL, datefmt='%d.%m.%y %H:%M:%S')
+
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
 if __name__ == '__main__':
-    r = MyRedis(host='192.168.19.18', port=6379, db=0)
-    r.set_dict('mydict', {'a': 'проверка', 'b_key': 17.2})
-    mydict = r.get_dict('mydict')
-    print(mydict)
+    dw = DataWorker(production=bool(PRODUCTION), redis_host=str(params.redis_host), redis_db=int(params.redis_db))
+    dw.run()
