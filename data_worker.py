@@ -317,11 +317,11 @@ class DataWorker:
                     self.redis.set_dict(key, _df.to_dict())
 
     def save_options(self, option: str, key: str) -> None:
-        options = self.dfc[option].unique().tolist()
+        options = self.dfc[self.dfc[option] != ""][option].unique().tolist()
         data = {
             'data': options
         }
-        self.redis.set_dict('key', data)
+        self.redis.set_dict(key, data)
 
     def save_actual_date(self) -> None:
         self.redis.set('actual_date', self.dfc['Период'].max().strftime("%d.%m.%Y"))
