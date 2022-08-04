@@ -8,7 +8,7 @@ import json
 from time import sleep
 import logging
 import pandas as pd
-from queries import SALES_DATA_QUERY
+from queries import SALES_DATA_QUERY, WORKING_MANAGERS
 from models import Models, Model
 from myredis import MyRedis
 from dateutil.relativedelta import relativedelta
@@ -87,9 +87,10 @@ class DataWorker:
         return _date.strftime("%d.%m.%Y %H:%M:%S")
 
     @staticmethod
-    def get_data(session, logger) -> dict:
+    def get_data(session: requests.session, logger, query: str) -> dict:
         """
         Получает из 1С историю продаж в разрезе групп и подразделений помесячно
+        :param query: query text
         :param session: сессия для подключения к 1C
         :param logger: логгер
         :return: dict с историей продаж для загрузки в dataframe
@@ -98,8 +99,9 @@ class DataWorker:
 
         headers = {'Content-type': 'application/json',
                    'Accept': 'text/plain'}
-        json_dict = {'api_key': API_KEY, 'query': SALES_DATA_QUERY}
+        json_dict = {'api_key': API_KEY, 'query': query}
         logger.debug(f'json_dict: {json_dict}')
+
         try:
             _route = f'http://{SERVER_1C}/{BASE_1C}{GET_QUERY_ROUTE}'
             logger.debug(f'route: {_route}')
@@ -118,13 +120,16 @@ class DataWorker:
 
         return _empty_response
 
+    def get_working_managers(self) -> list:
+        return pd.json_normalize(self.get_data(self.session, self.logger, WORKING_MANAGERS)['data'])['Пользователь'].tolist()
+
     def load_data(self) -> None:
         """
         Загружает историю продаж из 1С в dataframe
         :return:
         """
         self.logger.info('Loading data from 1C...')
-        _json_dict: dict = self.get_data(self.session, self.logger)
+        _json_dict: dict = self.get_data(self.session, self.logger, SALES_DATA_QUERY)
         try:
             self._df = pd.json_normalize(_json_dict['data'])
             # self._df.to_csv('history.csv', index=False)
@@ -175,6 +180,8 @@ class DataWorker:
         df_region = self.dfc.groupby(['Период', 'Группа', 'Регион'], as_index=False).sum()
         df_manager = self.dfc.groupby(['Период', 'Группа', 'Менеджер'], as_index=False).sum()
         df_manager = df_manager.drop(df_manager[df_manager['Менеджер'] == ""].index)
+
+        df_manager = df_manager[df_manager['Менеджер'].isin(self.get_working_managers())]
 
         if not self.production:
             df_group = df_group[df_group['Группа'] == df_group['Группа'].unique()[0]]

@@ -4,13 +4,14 @@ import pandas as pd
 import pytest
 import pdb
 from dateutil.relativedelta import relativedelta
+from queries import SALES_DATA_QUERY
 
 logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='session')
 def test_setup():
-    dw = data_worker.DataWorker()
+    dw = data_worker.DataWorker('192.168.19.18', 15, False)
     return dw
 
 
@@ -20,7 +21,7 @@ def test_get_data(test_setup):
     :param test_setup:
     :return:
     """
-    data = test_setup.get_data(test_setup.session, test_setup.logger)
+    data = test_setup.get_data(test_setup.session, test_setup.logger, SALES_DATA_QUERY)
     assert data['data'] != []
 
 
