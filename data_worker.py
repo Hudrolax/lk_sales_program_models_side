@@ -70,10 +70,10 @@ class DataWorker:
 
     def __init__(self, redis_host: str, redis_db: int, production: bool):
         # датафрейм для загрузки данных
-        self._df = pd.DataFrame([], columns=['Группа', 'Период', 'Показатель', 'Подразделение, Регион, Менеджер'])
+        self._df = pd.DataFrame([], columns=['Группа', 'Период', 'Показатель', 'Подразделение, Регион, Менеджер, Ед'])
 
         # датафрейм для хранения очищенных данных
-        self.dfc = pd.DataFrame([], columns=['Группа', 'Период', 'Показатель', 'Подразделение, Регион, Менеджер'])
+        self.dfc = pd.DataFrame([], columns=['Группа', 'Период', 'Показатель', 'Подразделение, Регион, Менеджер, Ед'])
 
         self.models = Models()
 
@@ -146,6 +146,7 @@ class DataWorker:
         self.logger.info('Preprocessing data...')
         if not self._df.empty:
             self._df['Период'] = pd.to_datetime(self._df['Период'], format='%d.%m.%Y %H:%M:%S')
+            # убираем текущий месяц, т.к. он еще не закончился и данные не полные для прогноза
             self.dfc = self._df[self._df['Период'] < datetime.now().replace(day=1, hour=0, minute=0, second=0, )]
             self.dfc = self.dfc.sort_values(by='Период', ascending=True, ignore_index=True)
             self.dfc['Регион'] = self.dfc['Регион'].fillna('Направление Краснодар+15км - Динской район')
@@ -175,10 +176,10 @@ class DataWorker:
         self.logger.info('Make models and predictions...')
         if self._df.empty:
             return
-        df_group = self.dfc.groupby(['Период', 'Группа'], as_index=False).sum()
-        df_subdivision = self.dfc.groupby(['Период', 'Группа', 'Подразделение'], as_index=False).sum()
-        df_region = self.dfc.groupby(['Период', 'Группа', 'Регион'], as_index=False).sum()
-        df_manager = self.dfc.groupby(['Период', 'Группа', 'Менеджер'], as_index=False).sum()
+        df_group = self.dfc.groupby(['Период', 'Группа', 'Ед'], as_index=False).sum()
+        df_subdivision = self.dfc.groupby(['Период', 'Группа', 'Подразделение', 'Ед'], as_index=False).sum()
+        df_region = self.dfc.groupby(['Период', 'Группа', 'Регион', 'Ед'], as_index=False).sum()
+        df_manager = self.dfc.groupby(['Период', 'Группа', 'Менеджер', 'Ед'], as_index=False).sum()
         df_manager = df_manager.drop(df_manager[df_manager['Менеджер'] == ""].index)
 
         df_manager = df_manager[df_manager['Менеджер'].isin(self.get_working_managers())]
@@ -229,22 +230,22 @@ class DataWorker:
         df_list = []
 
         # df для групп по компании
-        df = self.dfc.groupby(by=['Группа'], as_index=False).sum().copy()
+        df = self.dfc.groupby(by=['Группа', 'Ед'], as_index=False).sum().copy()
         df = df.drop('Показатель', axis=1).sort_values(by='Группа')
         df_list.append(df)
 
         # df для групп по подразделениям
-        df = self.dfc.groupby(by=['Группа', 'Подразделение'], as_index=False).sum().copy()
+        df = self.dfc.groupby(by=['Группа', 'Подразделение', 'Ед'], as_index=False).sum().copy()
         df = df.drop('Показатель', axis=1).sort_values(by='Группа')
         df_list.append(df)
 
         # df для групп по регионам
-        df = self.dfc.groupby(by=['Группа', 'Регион'], as_index=False).sum().copy()
+        df = self.dfc.groupby(by=['Группа', 'Регион', 'Ед'], as_index=False).sum().copy()
         df = df.drop('Показатель', axis=1).sort_values(by='Группа')
         df_list.append(df)
 
         # df для групп по менеджерам
-        df = self.dfc.groupby(by=['Группа', 'Менеджер'], as_index=False).sum().copy()
+        df = self.dfc.groupby(by=['Группа', 'Менеджер', 'Ед'], as_index=False).sum().copy()
         df = df.drop('Показатель', axis=1).sort_values(by='Группа')
         df_list.append(df)
 
@@ -384,5 +385,5 @@ class DataWorker:
                 if last_date is not None:
                     sleep(1)
                 else:
-                    self.logger.warning("Perhaps Redis server is rebooted. I'l try update all data.")
+                    self.logger.warning("Perhaps Redis server is rebooted. I'll try to update all data.")
                     break

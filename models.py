@@ -171,8 +171,7 @@ class Models:
                 for subdivision in actual_subd:
                     df_model = df[(df['Группа'] == group) & (df['Подразделение'] == subdivision)].sort_values(
                         by='Период')
-                    df_model = df_model.drop(['Группа', 'Подразделение'], axis=1).rename(columns={'Период': 'ds',
-                                                                                                  'Показатель': 'y'})
+                    df_model = df_model[['Период', 'Показатель']].rename(columns={'Период': 'ds', 'Показатель': 'y'})
                     # pdb.set_trace()
                     if len(df_model) > 1:
                         model = Model(group, name='prophet', subdivision=subdivision)
@@ -189,9 +188,7 @@ class Models:
                 for region in actual_regions:
                     df_model = df[(df['Группа'] == group) & (df['Регион'] == region)].sort_values(
                         by='Период')
-                    df_model = df_model.drop(['Группа', 'Регион'], axis=1).rename(
-                        columns={'Период': 'ds',
-                                 'Показатель': 'y'})
+                    df_model = df_model[['Период', 'Показатель']].rename(columns={'Период': 'ds', 'Показатель': 'y'})
                     if len(df_model) > 1:
                         model = Model(group, name='prophet', region=region)
                         model.make_fit_predict(group=group, region=region, df=df_model)
@@ -207,9 +204,7 @@ class Models:
                 for manager in actual_managers:
                     df_model = df[(df['Группа'] == group) & (df['Менеджер'] == manager)].sort_values(
                         by='Период')
-                    df_model = df_model.drop(['Группа', 'Менеджер'], axis=1).rename(
-                        columns={'Период': 'ds',
-                                 'Показатель': 'y'})
+                    df_model = df_model[['Период', 'Показатель']].rename(columns={'Период': 'ds', 'Показатель': 'y'})
                     if len(df_model) > 1:
                         model = Model(group, name='prophet', manager=manager)
                         model.make_fit_predict(group=group, manager=manager, df=df_model)
@@ -222,7 +217,7 @@ class Models:
         else:
             for group in df['Группа'].unique():
                 df_model = df[df['Группа'] == group].sort_values(by='Период')
-                df_model = df_model.drop(['Группа'], axis=1).rename(columns={'Период': 'ds', 'Показатель': 'y'})
+                df_model = df_model[['Период', 'Показатель']].rename(columns={'Период': 'ds', 'Показатель': 'y'})
                 if len(df_model) > 1:
                     model = Model(group, name='prophet')
                     model.make_fit_predict(group=group, df=df_model)

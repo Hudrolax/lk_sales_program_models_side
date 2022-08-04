@@ -66,18 +66,18 @@ def test_make_fit_predict_raw_data(test_setup):
     :param test_setup:
     :return:
     """
-    df_group = test_setup.dfc.groupby(['Период', 'Группа'], as_index=False).sum()
+    df_group = test_setup.dfc.groupby(['Период', 'Группа', 'Ед'], as_index=False).sum()
     df_group = df_group[df_group['Группа'] == df_group['Группа'].unique()[0]]
 
-    df_subdivision = test_setup.dfc.groupby(['Период', 'Группа', 'Подразделение'], as_index=False).sum()
+    df_subdivision = test_setup.dfc.groupby(['Период', 'Группа', 'Подразделение', 'Ед'], as_index=False).sum()
     df_subdivision = df_subdivision[(df_subdivision['Группа'] == df_subdivision['Группа'].unique()[0]) \
                                     & (df_subdivision['Подразделение'] == df_subdivision['Подразделение'].unique()[0])]
 
-    df_region = test_setup.dfc.groupby(['Период', 'Группа', 'Регион'], as_index=False).sum()
+    df_region = test_setup.dfc.groupby(['Период', 'Группа', 'Регион', 'Ед'], as_index=False).sum()
     df_region = df_region[(df_region['Группа'] == df_region['Группа'].unique()[0]) \
                                     & (df_region['Регион'] == df_region['Регион'].unique()[0])]
 
-    df_manager = test_setup.dfc.groupby(['Период', 'Группа', 'Менеджер'], as_index=False).sum()
+    df_manager = test_setup.dfc.groupby(['Период', 'Группа', 'Менеджер', 'Ед'], as_index=False).sum()
     df_manager = df_manager.drop(df_manager[df_manager['Менеджер'] == ""].index)
     df_manager = df_manager[(df_manager['Группа'] == df_manager['Группа'].unique()[0]) \
                           & (df_manager['Менеджер'] == df_manager['Менеджер'].unique()[0])]
