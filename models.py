@@ -6,8 +6,9 @@ from dateutil.relativedelta import relativedelta
 import calendar
 import pdb
 import numpy as np
-from prophet.plot import plot_plotly
+from prophet.plot import plot_plotly, plot_components_plotly
 import plotly.express as px
+import plotly.graph_objs as go
 
 prophet.forecaster.logger.setLevel(logging.WARNING)
 logging.getLogger('cmdstanpy').setLevel(logging.ERROR)
@@ -17,7 +18,8 @@ class Model:
     logger = logging.getLogger(__name__)
 
     def __init__(self, group: str, name: str | None = None, subdivision: str | None = None, region: str | None = None,
-                 manager: str | None = None, periods: int = 6, freq: str = 'M'):
+                 manager: str | None = None, periods: int = 6, freq: str = 'M', logistic: bool = True,
+                 cap_percent: float = 0.2, quantile_dev_multi: float = 1.5, drop_outliers: bool = True):
         """
         :param name: Имя модели машинного обучения (если None - пустая модель)
         :param group: группа НоменклатурыЛК
@@ -28,6 +30,10 @@ class Model:
         :param freq: prediction frequency
                     The frequency can be anything from the pandas list of frequency strings here:
                      https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#timeseries-offset-aliases
+        :param logistic: bool Использовать логистические уровни максимума и минимума
+        :param cap_percent: int процент logistic cap от максимального значения. Default 20 %.
+        :param quantile_dev_multi: float множитель отклонения от 25 и 75 персентилей для определения выбросов
+        :param drop_outliers: bool Удалять ли выбросы из истории
         """
         self.name = name
         self.group = group
@@ -36,6 +42,10 @@ class Model:
         self.manager = manager
         self.periods = periods
         self.freq = freq
+        self.logistic = logistic
+        self.cap_percent = cap_percent
+        self.quantile_dev_multi = quantile_dev_multi
+        self.drop_outliers = drop_outliers
 
         # model object
         self.model = None
@@ -47,6 +57,17 @@ class Model:
         self.rmse = None
         # saved model filename
         self.model_filename = None
+
+        # Нижний лимит выборосов
+        self.lower_limit = None
+        # Верхний лимит выбросов
+        self.upper_limit = None
+        # df с выбросами (колонки ds, y)
+        self.outliers = pd.DataFrame()
+        # df с историей для прогноза (колонки df, y и если logistic, то cap, floor)
+        self.df = pd.DataFrame()
+        # df неочищенный от выбросов с историей для прогноза (колонки df, y)
+        self.raw_df = pd.DataFrame()
 
         if self.name is None:
             def df_generator():
@@ -62,7 +83,42 @@ class Model:
 
     def graph(self):
         if type(self.model) == prophet.Prophet:
-            return plot_plotly(self.model, self.forecast, trend=True)
+            fig = plot_plotly(self.model, self.forecast, trend=True)
+            fig.update_layout(
+                title="Прогноз",
+                xaxis_title="Период",
+                yaxis_title="Объем продаж",
+            )
+            if not self.outliers.empty:
+                fig.add_trace(go.Scatter(x=self.outliers['ds'], y=self.outliers['y'],
+                                         mode='markers',
+                                         name='outliers',
+                                         marker_color='red'))
+            return fig
+        else:
+            return px.scatter()
+
+    def graph_component(self):
+        if type(self.model) == prophet.Prophet:
+            fig = plot_components_plotly(self.model, self.forecast)
+            fig.update_layout(
+                title="Компоненты прогноза",
+                width=800,
+                height=300
+            )
+            return fig
+        else:
+            return px.scatter()
+
+    def boxplot(self):
+        if type(self.model) == prophet.Prophet and not self.raw_df.empty:
+            fig = px.box(self.raw_df['y'], width=400, height=300, points="all")
+            fig.update_layout(
+                title="Распределение объемов продаж",
+                xaxis_title="Распределение",
+                yaxis_title="Объем продаж",
+            )
+            return fig
         else:
             return px.scatter()
 
@@ -84,7 +140,11 @@ class Model:
         if self.name == 'prophet':
             self.logger.info(f'Make model for group:{kwargs.get("group")}, subdivision:{kwargs.get("subdivision")},'
                              f'region:{kwargs.get("region")}, manager:{kwargs.get("manager")}')
-            self.model = prophet.Prophet()
+            if self.logistic:
+                growth = 'logistic'
+            else:
+                growth = 'linear'
+            self.model = prophet.Prophet(growth=growth)
             logging.getLogger('cmdstanpy').setLevel(logging.ERROR)
         else:
             raise Exception('Model name error')
@@ -99,7 +159,18 @@ class Model:
         """
         if self.name == 'prophet':
             if 'df' in kwargs:
-                self.model.fit(kwargs['df'])
+                self.raw_df = kwargs['df'].copy()
+                # drop outliers
+                if self.drop_outliers:
+                    self.lower_limit = self.raw_df.y.quantile(0.25) - (self.raw_df.y.quantile(0.75) - self.raw_df.y.quantile(0.25)) * self.quantile_dev_multi
+                    self.upper_limit = self.raw_df.y.quantile(0.75) + (self.raw_df.y.quantile(0.75) - self.raw_df.y.quantile(0.25)) * self.quantile_dev_multi
+                    self.outliers = self.raw_df[(self.raw_df['y'] < self.lower_limit) | (self.raw_df['y'] > self.upper_limit)]
+                    self.df = self.raw_df[(self.raw_df['y'] >= self.lower_limit) & (self.raw_df['y'] <= self.upper_limit)].copy()
+
+                if self.logistic:
+                    self.df['cap'] = self.df.y.max() + self.df.y.max() * self.cap_percent
+                    self.df['floor'] = 0
+                self.model.fit(self.df)
             else:
                 raise Exception('"df" dataframe expected')
         else:
@@ -111,6 +182,9 @@ class Model:
         """
         if self.name == 'prophet':
             future = self.model.make_future_dataframe(periods=self.periods, freq=self.freq)
+            if self.logistic:
+                future['cap'] = self.df.y.max() + self.df.y.max() * self.cap_percent
+                future['floor'] = 0
             self.forecast = self.model.predict(future)
             history = self.model.history.groupby(by='ds').sum()['y']
             se = np.square(self.forecast[:len(history)].groupby(by='ds').sum()['yhat'] - history)

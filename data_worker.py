@@ -45,22 +45,81 @@ class MyRedisModel(MyRedis):
         except redis.exceptions.ConnectionError as ex:
             raise MyRedisConnectionError(str(ex))
 
-    def save_forecast(self, model: Model) -> bool:
+    def save_model(self, model: Model) -> bool:
         """
-        Сохраняет прогноз модели в Redis
+        Сохраняет данные модели в Redis
         :param model: модель машинного обучения
         :return:
+
+        Ключи:
+            'name': имя модели
+            'date': дата прогноза
+            'group': группа номенклатуры ЛК
+            'subdivision': подразделение
+            'region': регион
+            'manager': менеджер
+            'forecast': dataframe с прогнозом (формат prophet)
+            'rmse': среднеквадратичная ошибка
+            'periods': количество периодов прогнозирования (default 6)
+            'freq': частота прогнозирования (default 'M' = month)
+            'logistic': Использовать или нет логистический метод с максимумом и минимумом (bool)
+            'cap_percent': Процент отклонения вверх от исторического максимума для определения логистического максимума
+                            (default 0.2)
+            'quantile_dev_multi': Множитель отклонения от разности персентилий для определения выбросов (default 1.5)
+            'drop_outliers': Удалять выбросы (bool, default True)
         """
         redis_key = f'{model.name},{model.group},{model.subdivision},{model.region},{model.manager}'
         model_dict = {
             'name': model.name,
+            'date': datetime.now(),
             'group': model.group,
             'subdivision': model.subdivision,
             'region': model.region,
             'manager': model.manager,
             'forecast': model.forecast.to_dict(),
             'rmse': model.rmse,
-            'figure': model.graph().to_json()
+            'periods': model.periods,
+            'freq': model.freq,
+            'logistic': model.logistic,
+            'cap_percent': model.logistic,
+            'quantile_dev_multi': model.quantile_dev_multi,
+            'drop_outliers': model.drop_outliers,
+        }
+        return self.set_dict(redis_key, model_dict)
+
+    def save_graph_components(self, model: Model) -> bool:
+        """
+        Сохраняет компоненты прогноза в Redis
+        :param model: модель машинного обучения
+        :return:
+        """
+        redis_key = f'{model.name},{model.group},{model.subdivision},{model.region},{model.manager},graph_component'
+        model_dict = {
+            'data': model.graph_component().to_json()
+        }
+        return self.set_dict(redis_key, model_dict)
+
+    def save_graph(self, model: Model) -> bool:
+        """
+        Сохраняет прогноз в Redis
+        :param model: модель машинного обучения
+        :return:
+        """
+        redis_key = f'{model.name},{model.group},{model.subdivision},{model.region},{model.manager},graph'
+        model_dict = {
+            'data': model.graph().to_json()
+        }
+        return self.set_dict(redis_key, model_dict)
+
+    def save_boxplot(self, model: Model) -> bool:
+        """
+        Сохраняет boxplot распределения в Redis
+        :param model: модель машинного обучения
+        :return:
+        """
+        redis_key = f'{model.name},{model.group},{model.subdivision},{model.region},{model.manager},boxplot'
+        model_dict = {
+            'data': model.boxplot().to_json()
         }
         return self.set_dict(redis_key, model_dict)
 
@@ -262,7 +321,10 @@ class DataWorker:
         """
         # сохраним предсказания моделей машинного обучения
         for model in self.models.models:
-            self.redis.save_forecast(model)
+            self.redis.save_model(model)
+            self.redis.save_graph(model)
+            self.redis.save_graph_components(model)
+            self.redis.save_boxplot(model)
 
     def save_dash_dataframes(self) -> None:
         """
@@ -328,7 +390,10 @@ class DataWorker:
                     self.redis.set_dict(key, _df.to_dict())
 
     def save_options(self, option: str, key: str) -> None:
-        options = self.dfc[self.dfc[option] != ""][option].unique().tolist()
+        if key == 'manager':
+            options = self.dfc[self.dfc[option].isin(self.get_working_managers())][option].unique().tolist()
+        else:
+            options = self.dfc[self.dfc[option] != ""][option].unique().tolist()
         data = {
             'data': options
         }
@@ -338,12 +403,20 @@ class DataWorker:
         self.redis.set('actual_date', self.dfc['Период'].max().strftime("%d.%m.%Y"))
 
     def save_to_redis(self) -> None:
-        self.save_forecasts()
-        self.save_dash_dataframes()
-        self.save_options('Подразделение', 'subdivision')
-        self.save_options('Регион', 'region')
-        self.save_options('Менеджер', 'manager')
-        self.save_actual_date()
+        while True:
+            try:
+                self.save_forecasts()
+                self.save_dash_dataframes()
+                self.save_options('Подразделение', 'subdivision')
+                self.save_options('Регион', 'region')
+                self.save_options('Менеджер', 'manager')
+                self.save_actual_date()
+                break
+            except MyRedisConnectionError as ex:
+                self.logger.error(f'Redis connection error: {ex}')
+                print('sleep 10 second...')
+                sleep(10)
+                continue
 
     def work_process(self):
         start_time = datetime.now()
@@ -361,14 +434,8 @@ class DataWorker:
     def run(self):
         while True:
             if self._df.empty or self._df['Период'].max() < datetime.now():
-                try:
-                    self.work_process()
-
-                    self.logger.info('Work done!')
-                except MyRedisConnectionError as ex:
-                    self.logger.error(f'Redis connection error: {ex}')
-                    print('sleep 10 second...')
-                    sleep(10)
+                self.work_process()
+                self.logger.info('Work done!')
 
             if not self.production:
                 break
