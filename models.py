@@ -89,6 +89,7 @@ class Model:
                 xaxis_title="Период",
                 yaxis_title="Объем продаж",
             )
+            fig.update_layout(xaxis_rangeslider_visible=False)
             if not self.outliers.empty:
                 fig.add_trace(go.Scatter(x=self.outliers['ds'], y=self.outliers['y'],
                                          mode='markers',

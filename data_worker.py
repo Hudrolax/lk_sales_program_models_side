@@ -402,6 +402,9 @@ class DataWorker:
     def save_actual_date(self) -> None:
         self.redis.set('actual_date', self.dfc['Период'].max().strftime("%d.%m.%Y"))
 
+    def save_last_work_date(self) -> None:
+        self.redis.set('last_work_date', datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+
     def save_to_redis(self) -> None:
         while True:
             try:
