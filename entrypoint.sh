@@ -4,4 +4,4 @@
 # -rh --redis_host="172.17.0.1" // IP Redis. 172.17.0.1 - стандарный IP внешнего хоста Docker
 # -rdb --redis_db=0 // номер базы данных Redis. 0 - дефолт.
 
-python main.py -p=true -rh="192.168.19.204" -rdb=0
+python main.py -p=true -rh="192.168.19.205" -rdb=0
