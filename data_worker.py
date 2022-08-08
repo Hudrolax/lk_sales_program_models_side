@@ -409,11 +409,11 @@ class DataWorker:
     def save_to_redis(self) -> None:
         while True:
             try:
-                self.save_forecasts()
-                self.save_dash_dataframes()
                 self.save_options('Подразделение', 'subdivision')
                 self.save_options('Регион', 'region')
                 self.save_options('Менеджер', 'manager')
+                self.save_dash_dataframes()
+                self.save_forecasts()
                 self.save_actual_date()
                 break
             except MyRedisConnectionError as ex:
