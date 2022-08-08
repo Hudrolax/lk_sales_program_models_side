@@ -389,6 +389,7 @@ class DataWorker:
                 else:
                     key = key_format(_period)
                     self.redis.set_dict(key, _df.to_dict())
+                self.logger.info(f'{key} saved to redis.')
 
     def save_options(self, option: str, key: str) -> None:
         if key == 'manager':
