@@ -373,6 +373,7 @@ class DataWorker:
                         df_save = df_save.drop('Подразделение', axis=1)
                         key = key_format(_period, subdivision=_subdivision)
                         self.redis.set_dict(key, df_save.to_dict())
+                        self.logger.info(f'{key} saved to redis.')
 
                 elif 'Регион' in _df.columns:
                     for _region in _df['Регион'].unique():
@@ -380,16 +381,18 @@ class DataWorker:
                         df_save = df_save.drop('Регион', axis=1)
                         key = key_format(_period, region=_region)
                         self.redis.set_dict(key, df_save.to_dict())
+                        self.logger.info(f'{key} saved to redis.')
                 elif 'Менеджер' in _df.columns:
                     for _manager in _df['Менеджер'].unique():
                         df_save = _df[_df['Менеджер'] == _manager]
                         df_save = df_save.drop('Менеджер', axis=1)
                         key = key_format(_period, manager=_manager)
                         self.redis.set_dict(key, df_save.to_dict())
+                        self.logger.info(f'{key} saved to redis.')
                 else:
                     key = key_format(_period)
                     self.redis.set_dict(key, _df.to_dict())
-                self.logger.info(f'{key} saved to redis.')
+                    self.logger.info(f'{key} saved to redis.')
 
     def save_options(self, option: str, key: str) -> None:
         if key == 'manager':
