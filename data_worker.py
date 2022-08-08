@@ -325,6 +325,7 @@ class DataWorker:
             self.redis.save_graph(model)
             # self.redis.save_graph_components(model)
             # self.redis.save_boxplot(model)
+            self.logger.info(f'Data for model {model} saved to Redis.')
 
     def save_dash_dataframes(self) -> None:
         """

@@ -206,6 +206,10 @@ class Model:
         else:
             return False
 
+    def __str__(self):
+        return f'''model {self.name}, group {self.group}, subdivision {self.subdivision}, region {self.region},
+               manager {self.manager}'''
+
 
 class Models:
     logger = logging.getLogger(__name__)
