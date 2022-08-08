@@ -323,8 +323,8 @@ class DataWorker:
         for model in self.models.models:
             self.redis.save_model(model)
             self.redis.save_graph(model)
-            self.redis.save_graph_components(model)
-            self.redis.save_boxplot(model)
+            # self.redis.save_graph_components(model)
+            # self.redis.save_boxplot(model)
 
     def save_dash_dataframes(self) -> None:
         """
