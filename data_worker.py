@@ -208,8 +208,11 @@ class DataWorker:
             # убираем текущий месяц, т.к. он еще не закончился и данные не полные для прогноза
             self.dfc = self._df[self._df['Период'] < datetime.now().replace(day=1, hour=0, minute=0, second=0, )]
 
-            # уберем все до 21го года
-            self.dfc = self._df[self._df['Период'] >= datetime(2021, 1, 1)]
+            # уберем все до 19 го года
+            self.dfc = self.dfc[self.dfc['Период'] >= datetime(2021, 1, 1)]
+
+            # # убираем 2020
+            # self.dfc = self.dfc[self.dfc['Период'].dt.year != 2020]
 
             self.dfc = self.dfc.sort_values(by='Период', ascending=True, ignore_index=True)
             self.dfc['Регион'] = self.dfc['Регион'].fillna('Направление Краснодар+15км - Динской район')
